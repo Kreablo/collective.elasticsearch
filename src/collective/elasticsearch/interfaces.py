@@ -40,6 +40,34 @@ class IQueryAssembler(Interface):
         pass
 
 
+class RelaxedFloat(schema.Float):
+
+    """Relax validation to allow integer JSON values"""
+
+    def _validate(self, value):
+
+        if not isinstance(value, float) or not isinstance(value, int):
+            raise WrongType(
+                value, self._type, self.__name__
+            ).with_field_and_value(self, value)
+
+        if isinstance(value, int):
+            value = float(value)
+        
+        try:
+            constraint = self.constraint(value)
+        except ValidationError as e:
+            if e.field is None:
+                e.field = self
+            if e.value is None:
+                e.value = value
+            raise
+        if not constraint:
+            raise ConstraintNotSatisfied(
+                value, self.__name__
+            ).with_field_and_value(self, value)
+
+
 class IElasticSettings(Interface):
 
     enabled = schema.Bool(title="Enabled", default=False, required=False)
@@ -74,7 +102,7 @@ class IElasticSettings(Interface):
         title="Sniff on connection fail", default=False, required=False
     )
 
-    sniffer_timeout = schema.Float(
+    sniffer_timeout = RelaxedFloat(
         title="Sniffer timeout", required=False, default=None
     )
 
@@ -82,7 +110,7 @@ class IElasticSettings(Interface):
         title="Retry on timeout", default=True, required=False
     )
 
-    timeout = schema.Float(
+    timeout = RelaxedFloat(
         title="Read timeout",
         description="how long before timeout connecting to elastic search",
         default=2.0,
