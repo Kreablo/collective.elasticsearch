@@ -5,6 +5,7 @@ from collective.elasticsearch import interfaces
 from collective.elasticsearch.utils import get_brain_from_path
 from Products.ZCatalog.CatalogBrains import AbstractCatalogBrain
 from Products.ZCatalog.interfaces import ICatalogBrain
+from collective.elasticsearch.interfaces import IBrainFactory
 from typing import Union
 from zope.component import getMultiAdapter
 from zope.globalrequest import getRequest
@@ -71,16 +72,20 @@ class ElasticSearchBrain:
         return -1
 
 
-def BrainFactory(manager):
-    def factory(result: dict) -> Union[AbstractCatalogBrain, ElasticSearchBrain]:
-        catalog = manager.catalog
-        zcatalog = catalog._catalog
+@implementer(IBrainFactory)
+class BrainFactory:
+
+    def __init__(self, manager):
+        self._manager = manager
+
+    def __call__(self, result):
+        manager = self._manager
         path = result.get("fields", {}).get("path.path", None)
         if type(path) in (list, tuple, set) and len(path) > 0:
             path = path[0]
         if path:
             result = manager.get_record_by_path(path)
-            brain = ElasticSearchBrain(record=result, catalog=catalog)
+            brain = ElasticSearchBrain(record=result, catalog=manager.catalog)
             if manager.highlight and result.get("highlight"):
                 fragments = []
                 fraglen = 0
@@ -93,8 +98,6 @@ def BrainFactory(manager):
             return brain
         # We should handle cases where there is no path in the ES response
         return None
-
-    return factory
 
 
 class ElasticResult:

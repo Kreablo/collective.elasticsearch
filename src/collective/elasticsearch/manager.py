@@ -20,7 +20,7 @@ from Products.CMFCore.indexing import processQueue
 from Products.CMFCore.permissions import AccessInactivePortalContent
 from Products.CMFCore.utils import _checkPermission
 from Products.CMFPlone.CatalogTool import CatalogTool
-from zope.component import getMultiAdapter
+from zope.component import getMultiAdapter, getUtility
 from zope.globalrequest import getRequest
 from zope.interface import implementer
 from zope.interface.interfaces import ComponentLookupError
@@ -408,7 +408,7 @@ class ElasticSearchManager:
         @param query_params: Parameters to pass to the search method
             'stored_fields': the list of fields to get from stored source
         """
-        factory = BrainFactory(self)
+        factory = getUtility(interfaces.IBrainFactory)(self)
         result = ElasticResult(self, query, **query_params)
         return LazyMap(factory, result, result.count)
 

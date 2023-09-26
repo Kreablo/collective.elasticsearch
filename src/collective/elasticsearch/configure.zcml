@@ -40,4 +40,9 @@
       name="elasticsearch"
       />
 
+  <utility
+      component=".result.BrainFactory"
+      provides=".interfaces.IBrainFactory"
+      />
+
 </configure>
