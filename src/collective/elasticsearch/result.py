@@ -27,11 +27,18 @@ class ElasticSearchBrain:
         return name in self._record
 
     def __getattr__(self, name):
-        if not self.__contains__(name):
+        if (name == 'EffectiveDate'):
+            name0 = 'effective'
+        elif (name == 'ModificationDate'):
+            name0 = 'modified'
+        else:
+            name0 = name
+
+        if not self.__contains__(name0):
             raise AttributeError(
                 f"'ElasticSearchBrain' object has no attribute '{name}'"
             )
-        return self._record[name]
+        return self._record[name0]
 
     def getPath(self):
         """Get the physical path for this record"""
@@ -72,10 +79,8 @@ def BrainFactory(manager):
         if type(path) in (list, tuple, set) and len(path) > 0:
             path = path[0]
         if path:
-            brain = get_brain_from_path(zcatalog, path)
-            if not brain:
-                result = manager.get_record_by_path(path)
-                brain = ElasticSearchBrain(record=result, catalog=catalog)
+            result = manager.get_record_by_path(path)
+            brain = ElasticSearchBrain(record=result, catalog=catalog)
             if manager.highlight and result.get("highlight"):
                 fragments = []
                 fraglen = 0

@@ -14,6 +14,8 @@ class IElasticSearchLayer(Interface):
 class IElasticSearchManager(Interface):
     pass
 
+class IBrainFactory(Interface):
+    pass
 
 class IMappingProvider(Interface):
     def get_index_creation_body():  # NOQA E0211
