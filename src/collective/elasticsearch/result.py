@@ -2,11 +2,8 @@ from Acquisition import aq_base
 from Acquisition import aq_get
 from Acquisition import aq_parent
 from collective.elasticsearch import interfaces
-from collective.elasticsearch.utils import get_brain_from_path
-from Products.ZCatalog.CatalogBrains import AbstractCatalogBrain
-from Products.ZCatalog.interfaces import ICatalogBrain
 from collective.elasticsearch.interfaces import IBrainFactory
-from typing import Union
+from Products.ZCatalog.interfaces import ICatalogBrain
 from zope.component import getMultiAdapter
 from zope.globalrequest import getRequest
 from zope.interface import implementer
@@ -28,10 +25,10 @@ class ElasticSearchBrain:
         return name in self._record
 
     def __getattr__(self, name):
-        if (name == 'EffectiveDate'):
-            name0 = 'effective'
-        elif (name == 'ModificationDate'):
-            name0 = 'modified'
+        if name == "EffectiveDate":
+            name0 = "effective"
+        elif name == "ModificationDate":
+            name0 = "modified"
         else:
             name0 = name
 
@@ -74,7 +71,6 @@ class ElasticSearchBrain:
 
 @implementer(IBrainFactory)
 class BrainFactory:
-
     def __init__(self, manager):
         self._manager = manager
 

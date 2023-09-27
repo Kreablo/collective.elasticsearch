@@ -7,6 +7,7 @@ from zope import schema
 from zope.interface import Interface
 
 
+
 class IElasticSearchLayer(Interface):
     pass
 
@@ -14,8 +15,10 @@ class IElasticSearchLayer(Interface):
 class IElasticSearchManager(Interface):
     pass
 
+
 class IBrainFactory(Interface):
     pass
+
 
 class IMappingProvider(Interface):
     def get_index_creation_body():  # NOQA E0211
@@ -55,7 +58,7 @@ class RelaxedFloat(schema.Float):
 
         if isinstance(value, int):
             value = float(value)
-        
+
         try:
             constraint = self.constraint(value)
         except ValidationError as e:
