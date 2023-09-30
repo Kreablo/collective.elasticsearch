@@ -12,7 +12,7 @@ from copy import deepcopy
 from typing import Dict, Set, Union, List, Type, TypeVar
 
 
-QTD = Union[str, List[str], List["QT"], "QT"]
+QTD = Union[str, int, float, List[str], List["QT"], "QT"]
 QT = Dict[str, QTD]
 
 T = TypeVar("T", str, List[str], List["QT"], "QT")
@@ -98,7 +98,6 @@ def _combine_dis_max(q1: "Query", q2: "Query") -> "Query":
             }
         },
         q1.indicies | q2.indicies,
-        q1.sort | q2.sort
     )
 
     return res
@@ -108,8 +107,7 @@ class Query:
 
     """Datatype for representing and combining queries."""
 
-    def __init__(self, query: QT, indicies: Set[str], sort: Set[str]):
-        self._sort = sort
+    def __init__(self, query: QT, indicies: Set[str]):
         self._query = query
         self._query_params = {}  # type: Dict[str, str]
         self._indicies = indicies
@@ -126,10 +124,6 @@ class Query:
     @property
     def indicies(self) -> Set[str]:
         return self._indicies
-
-    @property
-    def sort(self) -> Set[str]:
-        return self._sort
 
     def index_name(self) -> str:
         return ",".join(self._indicies)
