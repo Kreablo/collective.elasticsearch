@@ -1,3 +1,13 @@
+"""Combinator type for combining queries
+
+The combinator module exports the class Query which is used to combine
+queries using disjoint-max.
+
+:var QT: QT is a type for dictionaries containing query data
+:var QTD: QTD is the content type of QT
+:var T: T is a type variable over QTD
+
+"""
 from copy import deepcopy
 from typing import Dict, Set, Union, List, Type, TypeVar
 
@@ -8,7 +18,8 @@ QT = Dict[str, QTD]
 T = TypeVar("T", str, List[str], List["QT"], "QT")
 
 
-def _unpack(v: QTD, t: Type[T]) -> T:
+def cast(v: QTD, t: Type[T]) -> T:
+    """Cast a value of type QTD to the given type T"""
     return v  # type: ignore
 
 
@@ -51,7 +62,7 @@ def _to_dis_max(q: "Query") -> QT:
 
     if ("queries" in keys):
         q0 = q._query.copy()
-        b = _unpack(q0["bool"], QT)
+        b = cast(q0["bool"], QT)
         b["filter"] = q._index_filter()
     else:
         q0 = {
@@ -74,11 +85,11 @@ def _combine_dis_max(q1: "Query", q2: "Query") -> "Query":
     a = _to_dis_max(q1)
     b = _to_dis_max(q2)
 
-    aq = _unpack(a["dis_max"], QT)
-    bq = _unpack(b["dis_max"], QT)
+    aq = cast(a["dis_max"], QT)
+    bq = cast(b["dis_max"], QT)
 
-    aqs = _unpack(aq["queries"], List[QT])
-    bqs = _unpack(bq["queries"], List[QT])
+    aqs = cast(aq["queries"], List[QT])
+    bqs = cast(bq["queries"], List[QT])
 
     res = Query(
         {
