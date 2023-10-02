@@ -1,3 +1,5 @@
+from abc import abstractmethod
+from .combinator import Query, QT
 from dataclasses import dataclass
 from Products.CMFCore.interfaces import IIndexQueueProcessor
 from typing import Dict
@@ -38,10 +40,24 @@ class IReindexActive(Interface):
 
 
 class IQueryAssembler(Interface):
-    def normalize(query):  # NOQA E0213
+    """The query assembler normalize the query and generates the query
+    for the Plone catalogue.
+
+    """
+
+    @abstractmethod
+    def normalize(self, query: QT) -> Tuple[QT, str]:
         pass
 
-    def __call__(query):  # NOQA E0213
+    @abstractmethod
+    def __call__(self, query: QT) -> Query:
+        pass
+
+
+class IQueryExtender(Interface):
+
+    @abstractmethod
+    def __call__(self, query: QT) -> Query:
         pass
 
 
@@ -68,9 +84,9 @@ class RelaxedFloat(schema.Float):
                 e.value = value
             raise
         if not constraint:
-            raise ConstraintNotSatisfied(
-                value, self.__name__
-            ).with_field_and_value(self, value)
+            raise ConstraintNotSatisfied(value, self.__name__).with_field_and_value(
+                self, value
+            )
 
 
 class IElasticSettings(Interface):

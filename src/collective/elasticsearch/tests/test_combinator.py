@@ -1,12 +1,13 @@
 
 import unittest
 from collective.elasticsearch.combinator import Query
+from copy import deepcopy
 
 
 class SomeTest(unittest.TestCase):
     def test_combine_query(self):
-        a = Query({"match": "a"}, {"a"}, {"a"})
-        b = Query({"match": "b"}, {"b", "b0"}, {"a"})
+        a = Query({"match": "a"}, {"a"})
+        b = Query({"match": "b"}, {"b", "b0"})
 
         c = a | b
 
@@ -26,7 +27,16 @@ class SomeTest(unittest.TestCase):
 
         self.maxDiff = None
 
-        self.assertEqual(c.body, {
+        # The indicies are sets so we must sort the list for the test
+        # to succeed consistently.  The order in the query should not
+        # matter, so we only sort the list for the test.
+
+        cbody = deepcopy(c.body)
+        s = cbody["query"]["dis_max"]["queries"][1]["bool"]["filter"]["bool"]["should"]
+        s = sorted(s, key=lambda t: t["term"]["_index"])
+        cbody["query"]["dis_max"]["queries"][1]["bool"]["filter"]["bool"]["should"] = s
+
+        self.assertEqual(cbody, {
             "query": {
                 "dis_max": {
                     "queries": [
@@ -53,11 +63,16 @@ class SomeTest(unittest.TestCase):
             }
         })
 
-        d = Query({"match": "d"}, {"d"}, {"d"})
+        d = Query({"match": "d"}, {"d"})
 
         e = c | d
 
-        self.assertEqual(e.body, {
+        ebody = deepcopy(e.body)
+        s = ebody["query"]["dis_max"]["queries"][1]["bool"]["filter"]["bool"]["should"]
+        s = sorted(s, key=lambda t: t["term"]["_index"])
+        ebody["query"]["dis_max"]["queries"][1]["bool"]["filter"]["bool"]["should"] = s
+
+        self.assertEqual(ebody, {
             "query": {
                 "dis_max": {
                     "queries": [
@@ -91,4 +106,3 @@ class SomeTest(unittest.TestCase):
         })
 
         self.assertEqual(e.indicies, {"a", "b", "b0", "d"})
-

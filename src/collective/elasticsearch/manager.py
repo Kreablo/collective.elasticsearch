@@ -9,6 +9,7 @@ from collective.elasticsearch.compat import indices_put_mapping
 from collective.elasticsearch.compat import indices_put_settings
 from collective.elasticsearch.compat import ingest_put_pipeline
 from collective.elasticsearch.result import BrainFactory
+from collective.elasticsearch.combinator import Query, QT
 from collective.elasticsearch.result import ElasticResult
 from collective.elasticsearch.utils import use_redis
 from DateTime import DateTime
@@ -20,6 +21,7 @@ from Products.CMFCore.indexing import processQueue
 from Products.CMFCore.permissions import AccessInactivePortalContent
 from Products.CMFCore.utils import _checkPermission
 from Products.CMFPlone.CatalogTool import CatalogTool
+from typing import Optional
 from zope.component import getMultiAdapter
 from zope.component import getUtility
 from zope.globalrequest import getRequest
@@ -44,7 +46,8 @@ class ElasticSearchManager:
 
     @property
     def raise_search_exception(self):
-        """Whether to raise search exceptions or fallback to old catalog search"""
+        """Whether to raise search exceptions or fallback to old catalog search.
+        """
         try:
             value = api.portal.get_registry_record(
                 "raise_search_exception", interfaces.IElasticSettings, False
@@ -381,15 +384,21 @@ class ElasticSearchManager:
             plone_url = backend_host + "/".join(api.portal.get().getPhysicalPath())
         return plone_url
 
-    def _search(self, query, sort=None, **query_params):
+    def _search(self, query: Query,
+                sort: Optional[str] = None,
+                **query_params) -> QT:
         """ """
+
+        query_params = query_params | query.query_params
+
         if "start" in query_params:
             query_params["from_"] = query_params.pop("start")
 
-        query_params["stored_fields"] = query_params.get("stored_fields", "path.path")
+        query_params["stored_fields"] = query_params.get("stored_fields",
+                                                         "path.path")
         query_params["size"] = self.bulk_size
 
-        body = {"query": query}
+        body = query.body
         if sort is not None:
             body["sort"] = sort
         warnings.simplefilter("ignore", ResourceWarning)
@@ -399,7 +408,7 @@ class ElasticSearchManager:
                 "pre_tags": self.highlight_pre_tags.split("\n"),
                 "post_tags": self.highlight_post_tags.split("\n"),
             }
-        return es_search(self.connection, self.index_name, body, **query_params)
+        return es_search(self.connection, query.index_name(), body, **query_params)
 
     def search(self, query: dict, factory=None, **query_params) -> LazyMap:
         """

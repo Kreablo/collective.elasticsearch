@@ -3,8 +3,11 @@ from Acquisition import aq_get
 from Acquisition import aq_parent
 from collective.elasticsearch import interfaces
 from collective.elasticsearch.interfaces import IBrainFactory
+from collective.elasticsearch.interfaces import IQueryExtender
+from functools import reduce
 from Products.ZCatalog.interfaces import ICatalogBrain
 from zope.component import getMultiAdapter
+from zope.component import subscribers
 from zope.globalrequest import getRequest
 from zope.interface import implementer
 from ZPublisher.BaseRequest import RequestContainer
@@ -106,13 +109,20 @@ class ElasticResult:
             (getRequest(), manager), interfaces.IQueryAssembler
         )
         dquery, self.sort = qassembler.normalize(query)
-        self.query = qassembler(dquery)
+        q0 = interfaces.Query(qassembler(dquery), {manager.index_name})
+
+        extensionQueries = [et(dquery)
+                            for et in subscribers([q0], IQueryExtender)]
+
+        self.query = reduce(lambda q1, q2: q1 | q2, extensionQueries, q0)
 
         # results are stored in a dictionary, keyed
         # but the start index of the bulk size for the
         # results it holds. This way we can skip around
         # for result data in a result object
-        result = manager._search(self.query, sort=self.sort, **query_params)["hits"]
+        result = manager._search(self.query,
+                                 sort=self.sort,
+                                 **query_params)["hits"]
         self.results = {0: result["hits"]}
         self.count = result["total"]["value"]
         self.query_params = query_params
