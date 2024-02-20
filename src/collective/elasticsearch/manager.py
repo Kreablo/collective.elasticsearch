@@ -21,7 +21,7 @@ from Products.CMFCore.indexing import processQueue
 from Products.CMFCore.permissions import AccessInactivePortalContent
 from Products.CMFCore.utils import _checkPermission
 from Products.CMFPlone.CatalogTool import CatalogTool
-from typing import Optional
+from typing import Optional, Dict, Union, TypeVar
 from zope.component import getMultiAdapter
 from zope.component import getUtility
 from zope.globalrequest import getRequest
@@ -36,6 +36,29 @@ import warnings
 CONVERTED_ATTR = "_elasticconverted"
 CUSTOM_INDEX_NAME_ATTR = "_elasticcustomindex"
 INDEX_VERSION_ATTR = "_elasticindexversion"
+
+SORT = TypeVar('SORT', str, Dict[str, str])
+
+_sort_field_mapping = {
+    "sortable_title": "title__sort"
+}
+
+
+def _map_sort0(sort: str) -> str:
+    if sort in _sort_field_mapping.keys():
+        return _sort_field_mapping[sort]
+    return sort
+
+
+def _map_sort(sort: SORT) -> SORT:
+    if isinstance(sort, str):
+        return _map_sort0(sort)
+
+    r = {}
+    for k in sort.keys():
+        r[_map_sort0(k)] = sort[k]
+
+    return r
 
 
 @implementer(interfaces.IElasticSearchManager)
@@ -385,7 +408,7 @@ class ElasticSearchManager:
         return plone_url
 
     def _search(self, query: Query,
-                sort: Optional[str] = None,
+                sort: Optional[SORT] = None,
                 **query_params) -> QT:
         """ """
 
@@ -394,13 +417,17 @@ class ElasticSearchManager:
         if "start" in query_params:
             query_params["from_"] = query_params.pop("start")
 
-        query_params["stored_fields"] = query_params.get("stored_fields",
-                                                         "path.path")
+        # query_params["stored_fields"] = query_params.get("stored_fields",
+        #                                                 "path.path")
+
         query_params["size"] = self.bulk_size
 
         body = query.body
-        if sort is not None:
-            body["sort"] = sort
+        if isinstance(sort, list):
+            body["sort"] = list(map(_map_sort, sort))
+        elif isinstance(sort, str):
+            body["sort"] = _map_sort(sort)
+
         warnings.simplefilter("ignore", ResourceWarning)
         if self.highlight:
             body["highlight"] = {
@@ -419,6 +446,10 @@ class ElasticSearchManager:
             'stored_fields': the list of fields to get from stored source
         """
         factory = getUtility(interfaces.IBrainFactory)(self)
+
+        if "show_inactive" in query.keys():
+            del query["show_inactive"]
+
         result = ElasticResult(self, query, **query_params)
         return LazyMap(factory, result, result.count)
 

@@ -17,9 +17,10 @@ from ZPublisher.BaseRequest import RequestContainer
 class ElasticSearchBrain:
     """A Brain containing only information indexed in ElasticSearch."""
 
-    def __init__(self, record: dict, catalog):
+    def __init__(self, record: dict, catalog, source):
         self._record = record
         self._catalog = catalog
+        self._source = source
 
     def has_key(self, key):
         return key in self._record
@@ -65,12 +66,13 @@ class ElasticSearchBrain:
         if len(path) > 1:
             parent = parent.unrestrictedTraverse(path[:-1])
 
-        return parent.restrictedTraverse(path[-1])
+        obj = parent.restrictedTraverse(path[-1])
+
+        return obj
 
     def getRID(self) -> int:
         """Return the record ID for this object."""
         return -1
-
 
 @implementer(IBrainFactory)
 class BrainFactory:
@@ -79,12 +81,18 @@ class BrainFactory:
 
     def __call__(self, result):
         manager = self._manager
-        path = result.get("fields", {}).get("path.path", None)
+        source = None
+        if "fields" in result.keys():
+            path = result.get("fields", {}).get("path.path", None)
+        elif "_source" in result.keys():
+            source = result.get("_source")
+            path = source.get("path", {}).get("path")
+
         if type(path) in (list, tuple, set) and len(path) > 0:
             path = path[0]
         if path:
             result = manager.get_record_by_path(path)
-            brain = ElasticSearchBrain(record=result, catalog=manager.catalog)
+            brain = ElasticSearchBrain(record=result, catalog=manager.catalog, source=source)
             if manager.highlight and result.get("highlight"):
                 fragments = []
                 fraglen = 0
