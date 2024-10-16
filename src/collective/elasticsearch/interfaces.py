@@ -1,10 +1,12 @@
 from abc import abstractmethod
 from .combinator import Query, QT
+from .aggregates import Aggregates
 from dataclasses import dataclass
 from Products.CMFCore.interfaces import IIndexQueueProcessor
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Mapping
 from zope import schema
 from zope.interface import Interface
 
@@ -54,12 +56,28 @@ class IQueryAssembler(Interface):
         pass
 
 
+class IAggregateProvider(Interface):
+    """Provide aggregates and parse result.
+    """
+
+    @abstractmethod
+    def __call__(self) -> Mapping[str, dict]:
+        pass
+
+
+
 class IQueryExtender(Interface):
 
     @abstractmethod
     def __call__(self, query: QT) -> Query:
         pass
 
+
+class IQueryAggregates(Interface):
+
+    @abstractmethod
+    def __call__(self) -> Aggregates:
+        pass
 
 class RelaxedFloat(schema.Float):
 

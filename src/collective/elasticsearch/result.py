@@ -123,6 +123,7 @@ class ElasticResult:
                             for et in subscribers([q0], IQueryExtender)]
 
         self.query = reduce(lambda q1, q2: q1 | q2, extensionQueries, q0)
+        # self.query = extensionQueries[0]
 
         # results are stored in a dictionary, keyed
         # but the start index of the bulk size for the
@@ -130,9 +131,11 @@ class ElasticResult:
         # for result data in a result object
         result = manager._search(self.query,
                                  sort=self.sort,
-                                 **query_params)["hits"]
-        self.results = {0: result["hits"]}
-        self.count = result["total"]["value"]
+                                 **query_params)
+        hits = result["hits"]
+        self.aggregations = result.get("aggregations", None)
+        self.results = {0: hits["hits"]}
+        self.count = hits["total"]["value"]
         self.query_params = query_params
 
     def __len__(self):
@@ -176,7 +179,11 @@ class ElasticResult:
             else:
                 result_index = (key % bulk_size) - (bulk_size - (count % last_key))
         if result_key not in self.results:
-            self.results[result_key] = self.manager._search(
+            results = self.manager._search(
                 self.query, sort=self.sort, start=start, **self.query_params
-            )["hits"]["hits"]
+            )
+            aggregations = results.get("aggregations", None)
+            if aggregations is not None:
+                self.aggregations = aggregations
+            self.results[result_key] = results["hits"]["hits"]
         return self.results[result_key][result_index]

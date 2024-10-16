@@ -40,7 +40,73 @@ INDEX_VERSION_ATTR = "_elasticindexversion"
 SORT = TypeVar('SORT', str, Dict[str, str])
 
 _sort_field_mapping = {
-    "sortable_title": "title__sort"
+    "sortable_title": "title__sort",
+    "effective": "date-of-publication__sort",
+}
+
+FACET_MAXSIZE = 20
+
+_aggregations = {
+    "author": {
+        "terms": {
+            "field": "author__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "subject": {
+        "terms": {
+            "field": "subject__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "itype": {
+        "terms": {
+            "field": "itype__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "location": {
+        "terms": {
+            "field": "location__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "ccode": {
+        "terms": {
+            "field": "ccode__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "su-geo": {
+        "terms": {
+            "field": "su-geo__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "title-series": {
+        "terms": {
+            "field": "title-series__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "ln": {
+        "terms": {
+            "field": "ln__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "homebranch": {
+        "terms": {
+            "field": "homebranch__facet",
+            "size": FACET_MAXSIZE
+        }
+    },
+    "holdingbranch": {
+        "terms": {
+            "field": "holdingbranch__facet",
+            "size": FACET_MAXSIZE
+        }
+    }
 }
 
 
@@ -61,11 +127,18 @@ def _map_sort(sort: SORT) -> SORT:
     return r
 
 
+class _LazyMap(LazyMap):
+
+    def __init__(self, factory, result, count, aggregations):
+        super().__init__(factory, result, count)
+        self.aggregations = aggregations
+
 @implementer(interfaces.IElasticSearchManager)
 class ElasticSearchManager:
 
     _catalog: CatalogTool = None
     connection_key = "elasticsearch_connection"
+    aggregations: None | dict = None
 
     @property
     def raise_search_exception(self):
@@ -428,6 +501,13 @@ class ElasticSearchManager:
         elif isinstance(sort, str):
             body["sort"] = _map_sort(sort)
 
+        if self.aggregations is not None:
+            body["aggregations"] = self.aggregations
+
+        # REMOVE
+        body["aggregations"] = 
+
+        #logger.warning("after sort: " + repr(body))
         warnings.simplefilter("ignore", ResourceWarning)
         if self.highlight:
             body["highlight"] = {
@@ -451,7 +531,7 @@ class ElasticSearchManager:
             del query["show_inactive"]
 
         result = ElasticResult(self, query, **query_params)
-        return LazyMap(factory, result, result.count)
+        return _LazyMap(factory, result, result.count, result.aggregations)
 
     def search_results(self, request=None, check_perms=False, **kw):
         # Make sure any pending index tasks have been processed
