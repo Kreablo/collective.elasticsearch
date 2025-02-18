@@ -3,10 +3,19 @@ from collective.elasticsearch.indexes import getIndex
 from collective.elasticsearch.interfaces import IQueryAssembler
 from collective.elasticsearch.utils import getESOnlyIndexes
 from zope.interface import implementer
+from typing import Set
 
 
 @implementer(IQueryAssembler)
 class QueryAssembler:
+
+    _search_attributes: Set[str] = {
+        "Subject",
+        "contentType",
+        "portal_type",
+        "review_state"
+    }
+
     def __init__(self, request, es):
         self.es = es
         self.catalog = es.catalog
@@ -34,8 +43,22 @@ class QueryAssembler:
             del query["sort_limit"]
         return query, sort_on
 
-    def __call__(self, dquery):
+    def __call__(self, dquery, limits):
+
         filters = []
+
+        for limit in limits.keys():
+            if limit not in self._search_attributes:
+                return None
+            else:
+                terms = limits.get(limit)
+                if terms is None:
+                    pass
+                elif len(terms) > 1:
+                    filters.push({"terms": { limit: list(terms) }})
+                elif len(terms) == 1:
+                    filters.push({"term": { limit: list(terms)[0] }})
+
         matches = []
         catalog = self.catalog._catalog
         idxs = catalog.indexes.keys()
@@ -61,13 +84,19 @@ class QueryAssembler:
                     matches.extend(qq)
                 else:
                     matches.append(qq)
+
         if len(filters) == 0 and len(matches) == 0:
             return query
         query = {"bool": {}}
         if len(filters) > 0:
-            query["bool"]["filter"] = filters
+            query["bool"]["filter"] = {
+                "bool": {
+                    "must": filters
+                }
+            }
 
         if len(matches) > 0:
             query["bool"]["should"] = matches
             query["bool"]["minimum_should_match"] = 1
+
         return query

@@ -7,6 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Mapping
+from typing import Set
 from zope import schema
 from zope.interface import Interface
 
@@ -52,7 +53,7 @@ class IQueryAssembler(Interface):
         pass
 
     @abstractmethod
-    def __call__(self, query: QT) -> Query:
+    def __call__(self, query: QT, limits: Mapping[str, Set[str]]) -> Query:
         pass
 
 
@@ -69,7 +70,7 @@ class IAggregateProvider(Interface):
 class IQueryExtender(Interface):
 
     @abstractmethod
-    def __call__(self, query: QT) -> Query:
+    def __call__(self, query: QT, limits: Mapping[str, Set[str]]) -> Query:
         pass
 
 

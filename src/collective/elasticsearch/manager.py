@@ -21,7 +21,7 @@ from Products.CMFCore.indexing import processQueue
 from Products.CMFCore.permissions import AccessInactivePortalContent
 from Products.CMFCore.utils import _checkPermission
 from Products.CMFPlone.CatalogTool import CatalogTool
-from typing import Optional, Dict, Union, TypeVar
+from typing import Optional, Dict, Union, TypeVar, MutableMapping, Mapping, Set
 from zope.component import getMultiAdapter
 from zope.component import getUtility
 from zope.globalrequest import getRequest
@@ -46,7 +46,7 @@ _sort_field_mapping = {
 
 FACET_MAXSIZE = 20
 
-_aggregations = {
+_aggregations: dict = {
     "author": {
         "terms": {
             "field": "author__facet",
@@ -126,6 +126,15 @@ def _map_sort(sort: SORT) -> SORT:
 
     return r
 
+A = TypeVar('A')
+B = TypeVar('B')
+
+def _add_set(map: MutableMapping[A, Set[B]], a: A, b: B):
+    bs = map.get(a)
+    if bs is not None:
+        bs.add(b)
+    else:
+        map[a] = { b }
 
 class _LazyMap(LazyMap):
 
@@ -504,8 +513,7 @@ class ElasticSearchManager:
         if self.aggregations is not None:
             body["aggregations"] = self.aggregations
 
-        # REMOVE
-        body["aggregations"] = 
+        body["aggregations"] = _aggregations
 
         #logger.warning("after sort: " + repr(body))
         warnings.simplefilter("ignore", ResourceWarning)
@@ -530,7 +538,21 @@ class ElasticSearchManager:
         if "show_inactive" in query.keys():
             del query["show_inactive"]
 
-        result = ElasticResult(self, query, **query_params)
+        limits = query.get('limit')
+        limitsmap: MutableMapping[str, Set[str]] = {}
+
+        if limits is not None:
+            if not isinstance(limits, list):
+                limits = [limits]
+
+            for limit in limits:
+                i = limit.find(':')
+                if i >= 0:
+                    name = limit[:i]
+                    rest = limit[(i + 1):]
+                    _add_set(limitsmap, name, rest)
+
+        result = ElasticResult(self, query, limitsmap, **query_params)
         return _LazyMap(factory, result, result.count, result.aggregations)
 
     def search_results(self, request=None, check_perms=False, **kw):

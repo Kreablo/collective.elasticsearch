@@ -108,34 +108,48 @@ class BrainFactory:
 
 
 class ElasticResult:
-    def __init__(self, manager, query, **query_params):
+    def __init__(self, manager, query, limits, **query_params):
         assert "sort" not in query_params
         assert "start" not in query_params
         self.manager = manager
         self.bulk_size = manager.bulk_size
+
         qassembler = getMultiAdapter(
             (getRequest(), manager), interfaces.IQueryAssembler
         )
         dquery, self.sort = qassembler.normalize(query)
-        q0 = interfaces.Query(qassembler(dquery), {manager.index_name})
+        q0 = interfaces.Query(qassembler(dquery, limits), {manager.index_name})
 
-        extensionQueries = [et(dquery)
+        extensionQueries = [et(dquery, limits)
                             for et in subscribers([q0], IQueryExtender)]
 
         self.query = reduce(lambda q1, q2: q1 | q2, extensionQueries, q0)
-        # self.query = extensionQueries[0]
+        if self.query.body is None:
+            self.no_applicable_index = True
+            result = {
+                "hits": {
+                    "hits": [],
+                    "total": {
+                        "value": 0,
+                        "relation": "eq"
+                    }
+                }
+            }
+        else:
+            # self.query = extensionQueries[0]
 
-        # results are stored in a dictionary, keyed
-        # but the start index of the bulk size for the
-        # results it holds. This way we can skip around
-        # for result data in a result object
-        result = manager._search(self.query,
-                                 sort=self.sort,
-                                 **query_params)
+            # results are stored in a dictionary, keyed
+            # but the start index of the bulk size for the
+            # results it holds. This way we can skip around
+            # for result data in a result object
+            result = manager._search(self.query,
+                                     sort=self.sort,
+                                     **query_params)
         hits = result["hits"]
         self.aggregations = result.get("aggregations", None)
         self.results = {0: hits["hits"]}
         self.count = hits["total"]["value"]
+        self.count_relation = hits["total"]["relation"]
         self.query_params = query_params
 
     def __len__(self):

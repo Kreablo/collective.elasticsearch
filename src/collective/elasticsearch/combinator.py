@@ -9,7 +9,7 @@ queries using disjoint-max.
 
 """
 from copy import deepcopy
-from typing import Dict, Set, Union, List, Type, TypeVar
+from typing import Dict, Set, Union, List, Type, TypeVar, Optional
 
 
 QTD = Union[str, int, float, List[str], List["QT"], "QT"]
@@ -23,30 +23,32 @@ def cast(v: QTD, t: Type[T]) -> T:
     return v  # type: ignore
 
 
-def _index_filter_term(t: str) -> QT:
-    return {
-        "term": {
-            "_index": t
+def _index_filter_term(t: List[str]) -> QT | None:
+    if len(t) == 1:
+        return {
+            "term": {
+                "_index": t[0]
+            }
         }
-    }
-
-
-def _index_filter(indicies: Set[str]) -> QT:
-    f = list(map(_index_filter_term, indicies))
-    if len(f) == 0:
-        return {}
-    if len(f) == 1:
-        return f[0]
-    return {
-        "bool": {
-            "should": f
+    elif len(t) == 0:
+        return None
+    else:
+        return {
+            "terms": {
+                "_index": t
+            }
         }
-    }
 
+def _index_filter(indicies: Set[str]) -> QT | None:
+    term = _index_filter_term(list(indicies))
+    if term is None:
+        return None
 
-def _to_bool(q: QT) -> QT:
-    if ("bool" in q.keys()):
-        return q
+    return term
+
+def _bool_must(q: QT) -> QT:
+    if ("bool" in q.keys() and isinstance(q['bool'], dict) and "must" in q['bool'].keys()):
+        return deepcopy(q)
     else:
         return {
             "bool": {
@@ -54,23 +56,59 @@ def _to_bool(q: QT) -> QT:
             }
         }
 
+def _bool_must_query(q: "Query") -> QT | None:
 
-def _to_dis_max(q: "Query") -> QT:
+    if q._query is None:
+        return None
+
+    must: dict = _bool_must(q._query)
+    filter = _index_filter(q.indicies)
+
+    if filter is not None:
+        must['bool']['filter'] = filter
+    return must
+
+def _bool_should(q: QT) -> QT:
+    if ("bool" in q.keys() and isinstance(q['bool'], dict) and "should" in q['bool'].keys()):
+        return deepcopy(q)
+    else:
+        return {
+            "bool": {
+                "minimum_should_match": 1,
+                "should": [q]
+            }
+        }
+
+def _to_bool_should(q: "Query") -> QT | None:
+    must = _bool_must_query(q)
+
+    if must is None:
+        return None
+
+    return _bool_should(must)
+
+def _to_dis_max(q: "Query") -> QT | None:
+    if q._query is None:
+        return None
     keys = q._query.keys()
     if "dis_max" in keys:
         return deepcopy(q._query)
 
+    filter = q._index_filter()
+    q0: dict
     if ("queries" in keys):
         q0 = q._query.copy()
         b = cast(q0["bool"], QT)
-        b["filter"] = q._index_filter()
+        if filter is not None:
+            b["filter"] = filter
     else:
         q0 = {
             "bool": {
-                "must": [q._query],
-                "filter": q._index_filter()
+                "must": [q._query]
             }
         }
+        if filter is not None:
+            q0["bool"]["filter"] = filter
 
     return {
         "dis_max": {
@@ -81,9 +119,32 @@ def _to_dis_max(q: "Query") -> QT:
     }
 
 
+def _combine_bool_should(q1: "Query", q2: "Query") -> "Query":
+    a: Optional[dict] = _to_bool_should(q1)
+    b: Optional[dict] = _to_bool_should(q2)
+
+    if a is None:
+        return q2
+
+    if b is None:
+        return q2
+
+    should = a["bool"]["should"] + b["bool"]["should"]
+
+    a["bool"]["should"] = should
+
+    return Query(a, q1.indicies | q2.indicies)
+
+
 def _combine_dis_max(q1: "Query", q2: "Query") -> "Query":
     a = _to_dis_max(q1)
     b = _to_dis_max(q2)
+
+    if a is None:
+        return q2
+
+    if b is None:
+        return q1
 
     aq = cast(a["dis_max"], QT)
     bq = cast(b["dis_max"], QT)
@@ -107,13 +168,15 @@ class Query:
 
     """Datatype for representing and combining queries."""
 
-    def __init__(self, query: QT, indicies: Set[str]):
+    def __init__(self, query: Optional[QT], indicies: Set[str]):
         self._query = query
         self._query_params = {}  # type: Dict[str, str]
         self._indicies = indicies
 
     @property
-    def body(self) -> QT:
+    def body(self) -> Optional[QT]:
+        if self._query is None:
+            return None
         q = self._query.copy()
         return {"query": q}
 
@@ -128,8 +191,11 @@ class Query:
     def index_name(self) -> str:
         return ",".join(self._indicies)
 
-    def _index_filter(self) -> QT:
+    def _index_filter(self) -> QT | None:
         return _index_filter(self.indicies)
 
     def __or__(self, other: "Query") -> "Query":
-        return _combine_dis_max(self, other)
+        if self._query is None:
+            return other
+
+        return _combine_bool_should(self, other)
