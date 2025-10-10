@@ -1,9 +1,24 @@
 from collective.elasticsearch.indexes import EZCTextIndex
 from collective.elasticsearch.indexes import getIndex
-from collective.elasticsearch.interfaces import IQueryAssembler
-from collective.elasticsearch.utils import getESOnlyIndexes
+from collective.elasticsearch.interfaces import IQueryAssembler, SortOrder
+from collective.elasticsearch.combinator import Query
+from collective.elasticsearch.utils import getESOnlyIndexes, sort_order_fields
 from zope.interface import implementer
-from typing import Set
+from collections.abc import Set, Mapping
+
+
+SORT_FIELD_MAPPING = {
+    "sortable_title": "title__sort",
+    "effective": "date-of-publication__sort",
+}
+
+
+def _map_sort0(sort: str) -> str:
+    if sort == "_score":
+        return sort
+    if sort in SORT_FIELD_MAPPING:
+        return SORT_FIELD_MAPPING[sort]
+    return sort + "__sort"
 
 
 @implementer(IQueryAssembler)
@@ -15,6 +30,9 @@ class QueryAssembler:
         "portal_type",
         "review_state"
     }
+
+    _sort_attributes: set[str] = {item[1] for item in
+                                  SORT_FIELD_MAPPING.items()}
 
     def __init__(self, request, es):
         self.es = es
@@ -33,7 +51,7 @@ class QueryAssembler:
 
         if sort:
             for sort_str in sort.split(","):
-                sort_on.append({sort_str: {"order": sort_order}})
+                sort_on.append({_map_sort0(sort_str): {"order": sort_order}})
         sort_on.append("_score")
         if "b_size" in query:
             del query["b_size"]
@@ -43,21 +61,27 @@ class QueryAssembler:
             del query["sort_limit"]
         return query, sort_on
 
-    def __call__(self, dquery, limits):
+
+    def __call__(self, dquery: Query,
+                 limits: Mapping[str, Set[str]], sort: SortOrder) -> Query:
 
         filters = []
 
         for limit in limits.keys():
             if limit not in self._search_attributes:
                 return None
-            else:
-                terms = limits.get(limit)
-                if terms is None:
-                    pass
-                elif len(terms) > 1:
-                    filters.push({"terms": { limit: list(terms) }})
-                elif len(terms) == 1:
-                    filters.push({"term": { limit: list(terms)[0] }})
+
+            terms = limits.get(limit)
+            if terms is None:
+                pass
+            elif len(terms) > 1:
+                filters.append({"terms": {limit: list(terms)}})
+            elif len(terms) == 1:
+                filters.append({"term": {limit: list(terms)[0]}})
+
+        for s in sort_order_fields(sort):
+            if s not in self._sort_attributes:
+                return None
 
         matches = []
         catalog = self.catalog._catalog

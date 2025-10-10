@@ -3,15 +3,13 @@ from .combinator import Query, QT
 from .aggregates import Aggregates
 from dataclasses import dataclass
 from Products.CMFCore.interfaces import IIndexQueueProcessor
-from typing import Dict
-from typing import List
-from typing import Tuple
-from typing import Mapping
-from typing import Set
+from collections.abc import Mapping, Set, Iterable
 from zope import schema
 from zope.interface import Interface
 
 
+
+SortOrder = Iterable[Mapping[str, Mapping[str, str]] | str]
 
 class IElasticSearchLayer(Interface):
     pass
@@ -49,7 +47,7 @@ class IQueryAssembler(Interface):
     """
 
     @abstractmethod
-    def normalize(self, query: QT) -> Tuple[QT, str]:
+    def normalize(self, query: QT) -> tuple[QT, str]:
         pass
 
     @abstractmethod
@@ -70,7 +68,7 @@ class IAggregateProvider(Interface):
 class IQueryExtender(Interface):
 
     @abstractmethod
-    def __call__(self, query: QT, limits: Mapping[str, Set[str]]) -> Query:
+    def __call__(self, query: QT, limits: Mapping[str, Set[str]], sort: SortOrder) -> Query:
         pass
 
 
@@ -203,11 +201,11 @@ class IElasticSearchIndexQueueProcessor(IIndexQueueProcessor):
 @dataclass
 class IndexingActions:
 
-    index: Dict[str, dict]
-    reindex: Dict[str, dict]
-    unindex: Dict[str, dict]
-    index_blobs: Dict[str, dict]
-    uuid_path: Dict[str, str]
+    index: dict[str, dict]
+    reindex: dict[str, dict]
+    unindex: dict[str, dict]
+    index_blobs: dict[str, dict]
+    uuid_path: dict[str, str]
 
     def __len__(self):
         size = 0
@@ -216,7 +214,7 @@ class IndexingActions:
         size += len(self.unindex)
         return size
 
-    def all(self) -> List[Tuple[str, str, Dict]]:
+    def all(self) -> list[tuple[str, str, dict]]:
         all_data = []
         for attr, action in (
             ("index", "index"),

@@ -12,6 +12,7 @@ from collective.elasticsearch.result import BrainFactory
 from collective.elasticsearch.combinator import Query, QT
 from collective.elasticsearch.result import ElasticResult
 from collective.elasticsearch.utils import use_redis
+from collective.elasticsearch.interfaces import SortOrder
 from DateTime import DateTime
 from elasticsearch import Elasticsearch
 from elasticsearch import exceptions
@@ -21,7 +22,7 @@ from Products.CMFCore.indexing import processQueue
 from Products.CMFCore.permissions import AccessInactivePortalContent
 from Products.CMFCore.utils import _checkPermission
 from Products.CMFPlone.CatalogTool import CatalogTool
-from typing import Optional, Dict, Union, TypeVar, MutableMapping, Mapping, Set
+from typing import Optional, TypeVar, MutableMapping, Set
 from zope.component import getMultiAdapter
 from zope.component import getUtility
 from zope.globalrequest import getRequest
@@ -32,17 +33,9 @@ from ZTUtils.Lazy import LazyMap
 import os
 import warnings
 
-
 CONVERTED_ATTR = "_elasticconverted"
 CUSTOM_INDEX_NAME_ATTR = "_elasticcustomindex"
 INDEX_VERSION_ATTR = "_elasticindexversion"
-
-SORT = TypeVar('SORT', str, Dict[str, str])
-
-_sort_field_mapping = {
-    "sortable_title": "title__sort",
-    "effective": "date-of-publication__sort",
-}
 
 FACET_MAXSIZE = 20
 
@@ -109,38 +102,24 @@ _aggregations: dict = {
     }
 }
 
-
-def _map_sort0(sort: str) -> str:
-    if sort in _sort_field_mapping.keys():
-        return _sort_field_mapping[sort]
-    return sort
-
-
-def _map_sort(sort: SORT) -> SORT:
-    if isinstance(sort, str):
-        return _map_sort0(sort)
-
-    r = {}
-    for k in sort.keys():
-        r[_map_sort0(k)] = sort[k]
-
-    return r
-
 A = TypeVar('A')
 B = TypeVar('B')
 
-def _add_set(map: MutableMapping[A, Set[B]], a: A, b: B):
-    bs = map.get(a)
+
+def _add_set(map0: MutableMapping[A, Set[B]], a: A, b: B):
+    bs = map0.get(a)
     if bs is not None:
         bs.add(b)
     else:
-        map[a] = { b }
+        map0.set(a, {b})
+
 
 class _LazyMap(LazyMap):
 
     def __init__(self, factory, result, count, aggregations):
         super().__init__(factory, result, count)
         self.aggregations = aggregations
+
 
 @implementer(interfaces.IElasticSearchManager)
 class ElasticSearchManager:
@@ -151,7 +130,9 @@ class ElasticSearchManager:
 
     @property
     def raise_search_exception(self):
-        """Whether to raise search exceptions or fallback to old catalog search.
+        """Whether to raise search exceptions or fallback to old
+           catalog search.
+
         """
         try:
             value = api.portal.get_registry_record(
@@ -490,7 +471,7 @@ class ElasticSearchManager:
         return plone_url
 
     def _search(self, query: Query,
-                sort: Optional[SORT] = None,
+                sort: Optional[SortOrder] = None,
                 **query_params) -> QT:
         """ """
 
@@ -505,14 +486,12 @@ class ElasticSearchManager:
         query_params["size"] = self.bulk_size
 
         body = query.body
-        if isinstance(sort, list):
-            body["sort"] = list(map(_map_sort, sort))
-        elif isinstance(sort, str):
-            body["sort"] = _map_sort(sort)
 
         if self.aggregations is not None:
             body["aggregations"] = self.aggregations
 
+        if sort is not None:
+            body["sort"] = sort
         body["aggregations"] = _aggregations
 
         #logger.warning("after sort: " + repr(body))

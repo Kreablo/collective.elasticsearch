@@ -1,3 +1,7 @@
+[project]
+name = "collective.elastisearch"
+version = "5.0.1.dev0"
+
 [tool.black]
 line-length = 88
 target-version = ['py38']

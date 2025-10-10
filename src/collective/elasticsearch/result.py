@@ -117,13 +117,16 @@ class ElasticResult:
         qassembler = getMultiAdapter(
             (getRequest(), manager), interfaces.IQueryAssembler
         )
-        dquery, self.sort = qassembler.normalize(query)
-        q0 = interfaces.Query(qassembler(dquery, limits), {manager.index_name})
+        dquery, sort = qassembler.normalize(query)
+        self.sort = sort
+        q0 = interfaces.Query(qassembler(dquery, limits, sort),
+                              {manager.index_name})
 
-        extensionQueries = [et(dquery, limits)
-                            for et in subscribers([q0], IQueryExtender)]
+        eqs = [et(dquery, limits, sort)
+               for et in subscribers([q0], IQueryExtender)]
 
-        self.query = reduce(lambda q1, q2: q1 | q2, extensionQueries, q0)
+
+        self.query = reduce(lambda q1, q2: q1 | q2, eqs, q0)
         if self.query.body is None:
             self.no_applicable_index = True
             result = {
@@ -136,7 +139,7 @@ class ElasticResult:
                 }
             }
         else:
-            # self.query = extensionQueries[0]
+            # self.query = eqs[0]
 
             # results are stored in a dictionary, keyed
             # but the start index of the bulk size for the

@@ -1,7 +1,7 @@
 from collective.elasticsearch import logger
 from collective.elasticsearch.compat import get_connection_params
 from collective.elasticsearch.compat import normalize_hosts
-from collective.elasticsearch.interfaces import IElasticSettings
+from collective.elasticsearch.interfaces import IElasticSettings, SortOrder
 from plone.registry.interfaces import IRegistry
 from plone.uuid.interfaces import IUUID
 from Products.ZCatalog import ZCatalog
@@ -96,3 +96,13 @@ def use_redis():
     Determens if redis queueing should be used or not.
     """
     return is_redis_available() and get_settings().use_redis
+
+def sort_order_fields(sort: SortOrder) -> str:
+    """Generate all field names in sort order except _score"""
+    for sort_item in sort:
+        if isinstance(sort_item, str):
+            if sort_item != "_score":
+                yield sort_item
+        else:
+            yield from [item for item in sort_item.keys() if item != "_score"]
+

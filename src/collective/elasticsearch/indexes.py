@@ -53,6 +53,7 @@ keyword_fields = (
     "getRawRelatedItems",
     "Subject",
     "sortable_title",
+    "navicon"
 )
 
 

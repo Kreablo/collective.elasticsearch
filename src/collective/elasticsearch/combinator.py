@@ -127,7 +127,7 @@ def _combine_bool_should(q1: "Query", q2: "Query") -> "Query":
         return q2
 
     if b is None:
-        return q2
+        return q1
 
     should = a["bool"]["should"] + b["bool"]["should"]
 
