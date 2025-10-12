@@ -9,7 +9,7 @@ from zope.interface import Interface
 
 
 
-SortOrder = Iterable[Mapping[str, Mapping[str, str]] | str]
+SortOrder = Iterable[Mapping[str, str] | str]
 
 class IElasticSearchLayer(Interface):
     pass

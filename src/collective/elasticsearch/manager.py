@@ -111,7 +111,7 @@ def _add_set(map0: MutableMapping[A, Set[B]], a: A, b: B):
     if bs is not None:
         bs.add(b)
     else:
-        map0.set(a, {b})
+        map0[a] = {b}
 
 
 class _LazyMap(LazyMap):
@@ -546,6 +546,12 @@ class ElasticSearchManager:
             return method(request, **kw)
 
         query = request.copy() if isinstance(request, dict) else {}
+        # The sort order is filtered out from the query by the restapi
+        # entry point.  Readd it here.
+        sort_order = getattr(request, 'sort_order',
+                             None) if request is not None else None
+        if sort_order is not None:
+            query['sort_order'] = sort_order
         query.update(kw)
 
         if check_perms:

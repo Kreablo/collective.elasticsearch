@@ -24,7 +24,7 @@ def safeSearchResults(self, REQUEST=None, **kw):
     manager = ElasticSearchManager()
     active = manager.active
     method = manager.search_results if active else self._old_searchResults
-    return method(REQUEST, check_perms=True, **kw)
+    return method(REQUEST if REQUEST is not None else getattr(self, 'REQUEST', None), check_perms=True, **kw)
 
 
 def manage_catalogRebuild(self, RESPONSE=None, URL1=None):  # NOQA W0613

@@ -7,20 +7,6 @@ from zope.interface import implementer
 from collections.abc import Set, Mapping
 
 
-SORT_FIELD_MAPPING = {
-    "sortable_title": "title__sort",
-    "effective": "date-of-publication__sort",
-}
-
-
-def _map_sort0(sort: str) -> str:
-    if sort == "_score":
-        return sort
-    if sort in SORT_FIELD_MAPPING:
-        return SORT_FIELD_MAPPING[sort]
-    return sort + "__sort"
-
-
 @implementer(IQueryAssembler)
 class QueryAssembler:
 
@@ -31,8 +17,10 @@ class QueryAssembler:
         "review_state"
     }
 
-    _sort_attributes: set[str] = {item[1] for item in
-                                  SORT_FIELD_MAPPING.items()}
+    _sort_attributes: Set[str] = {
+        "sortable_title",
+        "effective",
+    }
 
     def __init__(self, request, es):
         self.es = es
@@ -51,7 +39,7 @@ class QueryAssembler:
 
         if sort:
             for sort_str in sort.split(","):
-                sort_on.append({_map_sort0(sort_str): {"order": sort_order}})
+                sort_on.append({sort_str: sort_order})
         sort_on.append("_score")
         if "b_size" in query:
             del query["b_size"]

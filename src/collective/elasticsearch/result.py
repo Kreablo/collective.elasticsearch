@@ -4,6 +4,7 @@ from Acquisition import aq_parent
 from collective.elasticsearch import interfaces
 from collective.elasticsearch.interfaces import IBrainFactory
 from collective.elasticsearch.interfaces import IQueryExtender
+from collective.elasticsearch.interfaces import SortOrder
 from functools import reduce
 from Products.ZCatalog.interfaces import ICatalogBrain
 from zope.component import getMultiAdapter
@@ -11,6 +12,7 @@ from zope.component import subscribers
 from zope.globalrequest import getRequest
 from zope.interface import implementer
 from ZPublisher.BaseRequest import RequestContainer
+from collections.abc import Iterable, Callable
 
 
 @implementer(ICatalogBrain)
@@ -118,13 +120,18 @@ class ElasticResult:
             (getRequest(), manager), interfaces.IQueryAssembler
         )
         dquery, sort = qassembler.normalize(query)
-        self.sort = sort
         q0 = interfaces.Query(qassembler(dquery, limits, sort),
                               {manager.index_name})
 
-        eqs = [et(dquery, limits, sort)
-               for et in subscribers([q0], IQueryExtender)]
+        qes = subscribers([q0], IQueryExtender)
 
+        eqs = [et(dquery, limits, sort) for et in qes]
+
+        self.sort: SortOrder = reduce(lambda s, eq: eq.transform_sort(s),
+                                      filter(lambda eq: callable(
+                                          getattr(eq, 'transform_sort', None)),
+                                             qes),
+                                      sort)
 
         self.query = reduce(lambda q1, q2: q1 | q2, eqs, q0)
         if self.query.body is None:
