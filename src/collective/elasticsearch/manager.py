@@ -39,68 +39,79 @@ INDEX_VERSION_ATTR = "_elasticindexversion"
 
 FACET_MAXSIZE = 20
 
-_aggregations: dict = {
-    "author": {
-        "terms": {
-            "field": "author__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "subject": {
-        "terms": {
-            "field": "subject__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "itype": {
-        "terms": {
-            "field": "itype__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "location": {
-        "terms": {
-            "field": "location__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "ccode": {
-        "terms": {
-            "field": "ccode__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "su-geo": {
-        "terms": {
-            "field": "su-geo__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "title-series": {
-        "terms": {
-            "field": "title-series__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "ln": {
-        "terms": {
-            "field": "ln__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "homebranch": {
-        "terms": {
-            "field": "homebranch__facet",
-            "size": FACET_MAXSIZE
-        }
-    },
-    "holdingbranch": {
-        "terms": {
-            "field": "holdingbranch__facet",
-            "size": FACET_MAXSIZE
+def _aggregations(index_name: str) -> dict:
+    return {
+       "plone-webcontent": {
+           "filters": {
+               "other_bucket": True,
+               "filters": [
+                   {
+                       "term": { "_index": index_name }
+                   }
+               ]
+           }
+       },
+        "author": {
+            "terms": {
+                "field": "author__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "subject": {
+            "terms": {
+                "field": "subject__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "itype": {
+            "terms": {
+                "field": "itype__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "location": {
+            "terms": {
+                "field": "location__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "ccode": {
+            "terms": {
+                "field": "ccode__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "su-geo": {
+            "terms": {
+                "field": "su-geo__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "title-series": {
+            "terms": {
+                "field": "title-series__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "ln": {
+            "terms": {
+                "field": "ln__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "homebranch": {
+            "terms": {
+                "field": "homebranch__facet",
+                "size": FACET_MAXSIZE
+            }
+        },
+        "holdingbranch": {
+            "terms": {
+                "field": "holdingbranch__facet",
+                "size": FACET_MAXSIZE
+            }
         }
     }
-}
 
 A = TypeVar('A')
 B = TypeVar('B')
@@ -492,8 +503,7 @@ class ElasticSearchManager:
 
         if sort is not None:
             body["sort"] = sort
-        body["aggregations"] = _aggregations
-
+        body["aggregations"] = _aggregations(self.index_name)
         #logger.warning("after sort: " + repr(body))
         warnings.simplefilter("ignore", ResourceWarning)
         if self.highlight:
