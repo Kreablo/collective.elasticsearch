@@ -165,8 +165,12 @@ def indices_put_settings(conn, index, body):
     """
     if IS_ES_8:
         # In ES 8, put_settings accepts 'settings' parameter, not unpacked body
-        return conn.indices.put_settings(index=index, settings=body)
-    return conn.indices.put_settings(index=index, body=body)
+        return conn.indices.put_settings(index=index,
+                                         settings=body,
+                                         preserve_existing=True)
+    return conn.indices.put_settings(index=index,
+                                     body=body,
+                                     preserve_existing=True)
 
 
 def ingest_put_pipeline(conn, pipeline_id, body):

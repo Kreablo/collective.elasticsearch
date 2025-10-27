@@ -8,6 +8,7 @@ from collective.elasticsearch.compat import has_attachment_processor
 from collective.elasticsearch.compat import indices_put_mapping
 from collective.elasticsearch.compat import indices_put_settings
 from collective.elasticsearch.compat import ingest_put_pipeline
+from collective.elasticsearch.compat import indices_create
 from collective.elasticsearch.result import BrainFactory
 from collective.elasticsearch.combinator import Query, QT
 from collective.elasticsearch.result import ElasticResult
@@ -25,6 +26,7 @@ from Products.CMFPlone.CatalogTool import CatalogTool
 from typing import Optional, TypeVar, MutableMapping, Set
 from zope.component import getMultiAdapter
 from zope.component import getUtility
+from zope.component import getAllUtilitiesRegisteredFor
 from zope.globalrequest import getRequest
 from zope.interface import implementer
 from zope.interface.interfaces import ComponentLookupError
@@ -49,6 +51,12 @@ def _aggregations(index_name: str) -> dict:
                        "term": { "_index": index_name }
                    }
                ]
+           }
+       },
+       "plone-tags": {
+           "terms": {
+               "field": "plone_Subject__facet",
+                "size": FACET_MAXSIZE
            }
        },
         "author": {
@@ -318,10 +326,35 @@ class ElasticSearchManager:
         self.flush_indices()
         self._convert_catalog_to_elastic()
 
+    def _create_index(self):
+        conn = self.connection
+        index_name = self.index_name
+        if conn.indices.exists(index=index_name):
+            # created BEFORE we started creating this as aliases to versions,
+            # we can't go anywhere from here beside try updating...
+            pass
+        else:
+            if not self.index_version:
+                # need to initialize version value
+                self._bump_index_version()
+            index_name_v = f"{index_name}_{self.index_version}"
+            if not conn.indices.exists(index=index_name_v):
+                settings = {}
+                all_settings = getAllUtilitiesRegisteredFor(interfaces.ISettingsProvider)
+                for s in all_settings:
+                    settings.update(s.get_settings())
+                indices_create(conn, index_name_v, {'settings': settings})
+
+            if not conn.indices.exists_alias(name=index_name):
+                conn.indices.put_alias(index=index_name_v, name=index_name)
+
+
     def _convert_catalog_to_elastic(self):
         setattr(self.catalog, CONVERTED_ATTR, True)
         self.catalog._p_changed = True
-        mapping = getMultiAdapter((getRequest(), self), interfaces.IMappingProvider)()
+        self._create_index()
+        mapping = getMultiAdapter((getRequest(), self),
+                                  interfaces.IMappingProvider)()
         indices_put_mapping(self.connection, self.index_name, mapping)
         self._setup_attachment_pipeline_and_default_index()
 

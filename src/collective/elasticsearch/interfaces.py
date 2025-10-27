@@ -31,6 +31,11 @@ class IMappingProvider(Interface):
         pass
 
 
+class ISettingsProvider(Interface):
+    def get_settings() -> dict:
+        pass
+
+
 class IAdditionalIndexDataProvider(Interface):
     def __call__():  # NOQA E0211
         pass

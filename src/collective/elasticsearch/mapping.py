@@ -38,7 +38,6 @@ class MappingAdapter:
         return {}
 
     def __call__(self):
-        manager = self.manager
         properties = self._default_mapping.copy()
         for name in self.catalog.indexes.keys():
             index = getIndex(self.catalog, name)
@@ -46,22 +45,6 @@ class MappingAdapter:
                 properties[name] = index.create_mapping(name)
             else:
                 raise Exception(f"Can not locate index for {name}")
-
-        conn = manager.connection
-        index_name = manager.index_name
-        if conn.indices.exists(index=index_name):
-            # created BEFORE we started creating this as aliases to versions,
-            # we can't go anywhere from here beside try updating...
-            pass
-        else:
-            if not manager.index_version:
-                # need to initialize version value
-                manager._bump_index_version()
-            index_name_v = f"{index_name}_{manager.index_version}"
-            if not conn.indices.exists(index=index_name_v):
-                indices_create(conn, index_name_v, self.get_index_creation_body())
-            if not conn.indices.exists_alias(name=index_name):
-                conn.indices.put_alias(index=index_name_v, name=index_name)
 
         for key in properties:
             if key in self._search_attributes:

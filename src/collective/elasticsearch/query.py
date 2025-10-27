@@ -7,20 +7,23 @@ from zope.interface import implementer
 from collections.abc import Set, Mapping
 
 
+_search_attributes: Set[str] = {
+    "Subject",
+    "contentType",
+    "portal_type",
+    "review_state",
+    "plone-tags",
+    "plone-webcontent"
+}
+
+_sort_attributes: Set[str] = {
+    "sortable_title",
+    "effective",
+}
+
+
 @implementer(IQueryAssembler)
 class QueryAssembler:
-
-    _search_attributes: Set[str] = {
-        "Subject",
-        "contentType",
-        "portal_type",
-        "review_state"
-    }
-
-    _sort_attributes: Set[str] = {
-        "sortable_title",
-        "effective",
-    }
 
     def __init__(self, request, es):
         self.es = es
@@ -56,19 +59,31 @@ class QueryAssembler:
         filters = []
 
         for limit in limits.keys():
-            if limit not in self._search_attributes:
+            if limit not in _search_attributes:
                 return None
 
             terms = limits.get(limit)
+
+            if limit == 'plone-tags':
+                limit = 'Subject'
+            elif limit == 'plone-webcontent':
+                limit = '_index'
+                if len(terms) != 1:
+                    return None
+                val = terms.pop()
+                if val == 0:
+                    return None
+                continue
+
             if terms is None:
                 pass
             elif len(terms) > 1:
-                filters.append({"terms": {limit: list(terms)}})
+                filters.append({'terms': {limit: list(terms)}})
             elif len(terms) == 1:
-                filters.append({"term": {limit: list(terms)[0]}})
+                filters.append({'term': {limit: list(terms)[0]}})
 
         for s in sort_order_fields(sort):
-            if s not in self._sort_attributes:
+            if s not in _sort_attributes:
                 return None
 
         matches = []
