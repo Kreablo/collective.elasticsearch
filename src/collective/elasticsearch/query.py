@@ -67,11 +67,11 @@ class QueryAssembler:
             if limit == 'plone-tags':
                 limit = 'Subject'
             elif limit == 'plone-webcontent':
-                limit = '_index'
                 if len(terms) != 1:
                     return None
                 val = terms.pop()
-                if val == 0:
+                if val == '0':
+                    del limits['plone-webcontent']
                     return None
                 continue
 

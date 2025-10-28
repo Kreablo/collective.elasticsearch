@@ -172,6 +172,7 @@ class Query:
         self._query = query
         self._query_params = {}  # type: Dict[str, str]
         self._indicies = indicies
+        self._track_total_hits = None
 
     @property
     def body(self) -> Optional[QT]:

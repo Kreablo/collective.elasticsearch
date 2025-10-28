@@ -528,6 +528,7 @@ class ElasticSearchManager:
         #                                                 "path.path")
 
         query_params["size"] = self.bulk_size
+        # query_params["track_total_hits"] = True
 
         body = query.body
 
