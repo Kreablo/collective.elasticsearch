@@ -5,6 +5,10 @@ This module provides helper functions to handle API differences between
 elasticsearch-py versions 7.x and 8.x.
 """
 from elasticsearch import VERSION as ES_VERSION
+from .serializer import ExtendedJsonSerializer
+from .serializer import ExtendedNdjsonSerializer
+from elastic_transport import TextSerializer
+import ssl
 
 
 ES_MAJOR_VERSION = ES_VERSION[0]
@@ -53,9 +57,18 @@ def get_connection_params(settings):
         Dictionary of connection parameters suitable for Elasticsearch() init.
     """
     if IS_ES_8:
+        ctx = ssl.create_default_context()
+        ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+        ctx.ca_certs = "/etc/ssl/certs/kreablo-cacert.pem"
         params = {
             "retry_on_timeout": settings.retry_on_timeout,
             "request_timeout": settings.timeout,
+            "serializers": {
+                ExtendedJsonSerializer.mimetype: ExtendedJsonSerializer(),
+                TextSerializer.mimetype: TextSerializer(),
+                ExtendedNdjsonSerializer.mimetype: ExtendedNdjsonSerializer(),
+            },
+            "ssl_context": ctx,
         }
         # Only enable sniffing if explicitly configured
         # In ES 8, sniffing can cause connection issues in Docker/test environments
@@ -72,6 +85,7 @@ def get_connection_params(settings):
         "sniff_on_start": settings.sniff_on_start,
         "sniffer_timeout": settings.sniffer_timeout,
         "timeout": settings.timeout,
+        "ca_certs": "/etc/ssl/certs/kreablo-cacert.pem",
     }
 
 
@@ -263,13 +277,6 @@ def scan_search(conn, index, query):
     Returns:
         Dictionary of kwargs to pass to elasticsearch.helpers.scan()
     """
-    if IS_ES_8:
-        return {
-            "client": conn,
-            "index": index,
-            "query": query.get("query"),
-            "_source": query.get("_source"),
-        }
     return {
         "client": conn,
         "index": index,

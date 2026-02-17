@@ -6,7 +6,7 @@ from Products.CMFCore.interfaces import IIndexQueueProcessor
 from collections.abc import Mapping, Set, Iterable
 from zope import schema
 from zope.interface import Interface
-
+from zope.schema._bootstrapinterfaces import WrongType
 
 
 SortOrder = Iterable[Mapping[str, str] | str]
@@ -89,7 +89,7 @@ class RelaxedFloat(schema.Float):
 
     def _validate(self, value):
 
-        if not isinstance(value, float) or not isinstance(value, int):
+        if not (isinstance(value, float) or isinstance(value, int)):
             raise WrongType(
                 value, self._type, self.__name__
             ).with_field_and_value(self, value)

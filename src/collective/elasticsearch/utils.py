@@ -8,6 +8,7 @@ from Products.ZCatalog import ZCatalog
 from Products.ZCatalog.CatalogBrains import AbstractCatalogBrain
 from typing import List
 from zope.component import getUtility
+from importlib.metadata import distribution, PackageNotFoundError
 
 import math
 import os
@@ -16,9 +17,9 @@ import pkg_resources
 
 HAS_REDIS_MODULE = False
 try:
-    pkg_resources.get_distribution("redis")
+    distribution("redis")
     HAS_REDIS_MODULE = True
-except pkg_resources.DistributionNotFound:
+except PackageNotFoundError:
     HAS_REDIS_MODULE = False
 
 

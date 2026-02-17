@@ -1,6 +1,54 @@
 [project]
-name = "collective.elastisearch"
+name = "collective.elasticsearch"
 version = "5.0.1.dev0"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "GPL-2.0-only"
+authors = [
+  { name = "Nathan Van Gheem", email = "vangheem@gmail.com" },
+  { name = "Andreas Jonsson", email = "andreas.jonsson@kreablo.se" }
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Web Environment",
+  "Framework :: Plone :: 5.2",
+  "Framework :: Plone :: 6.0",
+  "Framework :: Plone :: Addon",
+  "Framework :: Plone",
+  "Framework :: Zope :: 4",
+  "Framework :: Zope :: 5",
+  "Intended Audience :: System Administrators",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+keywords=[
+  "plone",
+  "elasticsearch",
+  "search",
+  "indexing",
+]
+dependencies = [
+   "elasticsearch>=7.17.7,<9.0.0",
+   "elastic-transport",
+   "plone.app.registry",
+   "plone.api",
+   "plone.autoinclude",
+   "packaging"
+]
+
+[project.urls]
+Repository="https://github.com/collective/collective.elasticsearch"
+PyPI="https://pypi.python.org/pypi/collective.elasticsearch"
+Tracker="https://github.com/collective/collective.elasticsearch/issues"
+
+[project.entry-points."plone.autoinclude.plugin"]
+target = "plone"
+module = "collective.elasticsearch"
 
 [tool.black]
 line-length = 88

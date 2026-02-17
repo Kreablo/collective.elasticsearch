@@ -96,7 +96,7 @@ class Utils(BrowserView):
 
     @property
     def _uids_elasticsearch(self):
-        query = {"query": {"match_all": {}}, "_source": ["UID"]}
+        query = {"query": {"match_all": {}}, "source": ["UID"]}
         scan_kwargs = scan_search(self._es_conn, self._es.index_name, query)
         items = scan(
             **scan_kwargs,
