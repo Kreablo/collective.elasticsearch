@@ -85,6 +85,7 @@ def get_connection_params(settings):
         "sniff_on_start": settings.sniff_on_start,
         "sniffer_timeout": settings.sniffer_timeout,
         "timeout": settings.timeout,
+        "serializer": ExtendedJsonSerializer(),
         "ca_certs": "/etc/ssl/certs/kreablo-cacert.pem",
     }
 
