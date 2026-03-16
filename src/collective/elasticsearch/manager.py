@@ -538,7 +538,6 @@ class ElasticSearchManager:
         if sort is not None:
             body["sort"] = sort
         body["aggregations"] = _aggregations(self.index_name)
-        #logger.warning("after sort: " + repr(body))
         warnings.simplefilter("ignore", ResourceWarning)
         if self.highlight:
             body["highlight"] = {
@@ -546,6 +545,7 @@ class ElasticSearchManager:
                 "pre_tags": self.highlight_pre_tags.split("\n"),
                 "post_tags": self.highlight_post_tags.split("\n"),
             }
+
         return es_search(self.connection, query.index_name(), body, **query_params)
 
     def search(self, query: dict, factory=None, **query_params) -> LazyMap:
@@ -611,7 +611,6 @@ class ElasticSearchManager:
             ):
                 query["effectiveRange"] = DateTime()
         orig_query = query.copy()
-        logger.debug(f"Running query: {orig_query}")
         try:
             return self.search(query)
         except Exception:  # NOQA W0703

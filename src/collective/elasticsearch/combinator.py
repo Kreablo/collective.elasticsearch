@@ -23,24 +23,35 @@ def cast(v: QTD, t: Type[T]) -> T:
     return v  # type: ignore
 
 
-def _index_filter_term(t: List[str]) -> QT | None:
+def _index_filter_term(t: List[str], qt: QT | None = None) -> QT | None:
+    qtfilter = deepcopy(qt._query['bool'].get('filter', None)) if qt._query is not None and 'bool' in qt._query else None
+
+    if len(t) == 0:
+        return qtfilter
+
+    result = None if qtfilter is None else qtfilter if isinstance(qtfilter, list) else [qtfilter]
+
     if len(t) == 1:
-        return {
+        t = {
             "term": {
                 "_index": t[0]
             }
         }
-    elif len(t) == 0:
-        return None
     else:
-        return {
+        t = {
             "terms": {
                 "_index": t
             }
         }
 
-def _index_filter(indicies: Set[str]) -> QT | None:
-    term = _index_filter_term(list(indicies))
+    if result is None:
+        return t
+
+    result.append(t)
+    return result
+
+def _index_filter(indicies: Set[str], qt: QT | None = None) -> QT | None:
+    term = _index_filter_term(list(indicies), qt)
     if term is None:
         return None
 
@@ -62,7 +73,7 @@ def _bool_must_query(q: "Query") -> QT | None:
         return None
 
     must: dict = _bool_must(q._query)
-    filter = _index_filter(q.indicies)
+    filter = _index_filter(q.indicies, q)
 
     if filter is not None:
         must['bool']['filter'] = filter
@@ -120,6 +131,7 @@ def _to_dis_max(q: "Query") -> QT | None:
 
 
 def _combine_bool_should(q1: "Query", q2: "Query") -> "Query":
+
     a: Optional[dict] = _to_bool_should(q1)
     b: Optional[dict] = _to_bool_should(q2)
 

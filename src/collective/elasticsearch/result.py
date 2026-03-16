@@ -13,6 +13,8 @@ from zope.globalrequest import getRequest
 from zope.interface import implementer
 from ZPublisher.BaseRequest import RequestContainer
 from collections.abc import Iterable, Callable
+import logging
+logger = logging.getLogger(__name__)
 
 
 @implementer(ICatalogBrain)

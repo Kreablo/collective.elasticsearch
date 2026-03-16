@@ -116,11 +116,7 @@ class QueryAssembler:
             return query
         query = {"bool": {}}
         if len(filters) > 0:
-            query["bool"]["filter"] = {
-                "bool": {
-                    "must": filters
-                }
-            }
+            query["bool"]["filter"] = filters
 
         if len(matches) > 0:
             query["bool"]["should"] = matches
