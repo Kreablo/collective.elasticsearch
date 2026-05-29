@@ -13,6 +13,8 @@ from zope.globalrequest import getRequest
 from zope.interface import implementer
 from ZPublisher.BaseRequest import RequestContainer
 from collections.abc import Iterable, Callable
+from yokohama.query_parser import query_parser
+from yokohama.config import config
 import logging
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,15 @@ class ElasticResult:
         assert "start" not in query_params
         self.manager = manager
         self.bulk_size = manager.bulk_size
+
+        if "SearchableText" in query:
+            qp = None
+            for name in config.koha_instances():
+                qp0 = query_parser(name, config)
+                if qp0:
+                    qp = qp0
+                if qp:
+                    query["SearchableText"] = qp.parse(query["SearchableText"])
 
         qassembler = getMultiAdapter(
             (getRequest(), manager), interfaces.IQueryAssembler
