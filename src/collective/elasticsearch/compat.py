@@ -8,6 +8,7 @@ from elasticsearch import VERSION as ES_VERSION
 from .serializer import ExtendedJsonSerializer
 from .serializer import ExtendedNdjsonSerializer
 from elastic_transport import TextSerializer
+from collective.elasticsearch import logger
 import ssl
 
 
@@ -46,6 +47,26 @@ def normalize_hosts(hosts):
     return normalized
 
 
+def use_tls(hosts: list[str]):
+    ut: None | bool = None
+    warned = False
+    for host in normalize_hosts(hosts):
+        if host.startswith("https://"):
+            if ut is not None and not ut and not warned:
+                warned = True
+                logger.warning(("Mixed https and non-https hosts"
+                                " in ElasticSearch settings"))
+            ut = True
+        else:
+            if ut is not None and ut and not warned:
+                warned = True
+                logger.warning(("Mixed https and non-https hosts"
+                                " in ElasticSearch settings"))
+            else:
+                ut = False
+    return ut
+
+
 def get_connection_params(settings):
     """
     Build connection parameters compatible with the installed ES client version.
@@ -57,19 +78,30 @@ def get_connection_params(settings):
         Dictionary of connection parameters suitable for Elasticsearch() init.
     """
     if IS_ES_8:
-        ctx = ssl.create_default_context()
-        ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
-        ctx.ca_certs = "/etc/ssl/certs/kreablo-cacert.pem"
-        params = {
-            "retry_on_timeout": settings.retry_on_timeout,
-            "request_timeout": settings.timeout,
-            "serializers": {
-                ExtendedJsonSerializer.mimetype: ExtendedJsonSerializer(),
-                TextSerializer.mimetype: TextSerializer(),
-                ExtendedNdjsonSerializer.mimetype: ExtendedNdjsonSerializer(),
-            },
-            "ssl_context": ctx,
-        }
+        if use_tls(settings.hosts):
+            ctx = ssl.create_default_context()
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+            ctx.ca_certs = "/etc/ssl/certs/kreablo-cacert.pem"
+            params = {
+                "retry_on_timeout": settings.retry_on_timeout,
+                "request_timeout": settings.timeout,
+                "serializers": {
+                    ExtendedJsonSerializer.mimetype: ExtendedJsonSerializer(),
+                    TextSerializer.mimetype: TextSerializer(),
+                    ExtendedNdjsonSerializer.mimetype: ExtendedNdjsonSerializer(),
+                },
+                "ssl_context": ctx,
+            }
+        else:
+            params = {
+                "retry_on_timeout": settings.retry_on_timeout,
+                "request_timeout": settings.timeout,
+                "serializers": {
+                    ExtendedJsonSerializer.mimetype: ExtendedJsonSerializer(),
+                    TextSerializer.mimetype: TextSerializer(),
+                    ExtendedNdjsonSerializer.mimetype: ExtendedNdjsonSerializer(),
+                },
+            }
         # Only enable sniffing if explicitly configured
         # In ES 8, sniffing can cause connection issues in Docker/test environments
         if settings.sniff_on_start:
