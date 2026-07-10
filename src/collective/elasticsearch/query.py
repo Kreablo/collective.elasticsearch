@@ -3,11 +3,13 @@ from collective.elasticsearch.indexes import getIndex
 from collective.elasticsearch.interfaces import IQueryAssembler, SortOrder
 from collective.elasticsearch.combinator import Query
 from collective.elasticsearch.utils import getESOnlyIndexes, sort_order_fields
+from collective.elasticsearch.utils import wrap_function_scoring
 from zope.interface import implementer
 from collections.abc import Set, Mapping
-
+from typing import Any
 
 _search_attributes: Set[str] = {
+    "Title"
     "Subject",
     "contentType",
     "portal_type",
@@ -54,9 +56,9 @@ class QueryAssembler:
 
 
     def __call__(self, dquery: Query,
-                 limits: Mapping[str, Set[str]], sort: SortOrder) -> Query:
+                 limits: dict[str, Set[str]], sort: SortOrder) -> Query:
 
-        filters = []
+        filters: list[dict[str, Any]] = []
 
         for limit in limits.keys():
             if limit not in _search_attributes:
@@ -67,7 +69,7 @@ class QueryAssembler:
             if limit == 'plone-tags':
                 limit = 'Subject'
             elif limit == 'plone-webcontent':
-                if len(terms) != 1:
+                if terms is None or len(terms) != 1:
                     return None
                 val = terms.pop()
                 if val == '0':
@@ -86,10 +88,14 @@ class QueryAssembler:
             if s not in _sort_attributes:
                 return None
 
+        pl = None
+        if "pl" in dquery:
+            pl = dquery["pl"]
+            del dquery["pl"]
+
         matches = []
         catalog = self.catalog._catalog
         idxs = catalog.indexes.keys()
-        query = {"match_all": {}}
         es_only_indexes = getESOnlyIndexes()
         for key, value in dquery.items():
             if key not in idxs and key not in es_only_indexes:
@@ -113,13 +119,34 @@ class QueryAssembler:
                     matches.append(qq)
 
         if len(filters) == 0 and len(matches) == 0:
-            return query
-        query = {"bool": {}}
+            return {
+                "match_all": {}
+            }
+        query: dict[str, Any] = {
+            "bool": {}
+        }
         if len(filters) > 0:
             query["bool"]["filter"] = filters
 
         if len(matches) > 0:
             query["bool"]["should"] = matches
             query["bool"]["minimum_should_match"] = 1
+
+        functions = []
+        if pl is not None:
+            functions.append({
+                "filter": {
+                    "match": {"Language": pl}
+                },
+                "weight": 4
+            })
+
+        query = {
+            "function_score": {
+                "boost": 5,
+                "query": query,
+                "functions": functions
+            }
+        }
 
         return query

@@ -6,7 +6,7 @@ from plone.registry.interfaces import IRegistry
 from plone.uuid.interfaces import IUUID
 from Products.ZCatalog import ZCatalog
 from Products.ZCatalog.CatalogBrains import AbstractCatalogBrain
-from typing import List
+from typing import List, Generator, Any
 from zope.component import getUtility
 from importlib.metadata import distribution, PackageNotFoundError
 
@@ -98,7 +98,8 @@ def use_redis():
     """
     return is_redis_available() and get_settings().use_redis
 
-def sort_order_fields(sort: SortOrder) -> str:
+
+def sort_order_fields(sort: SortOrder) -> Generator[str, None, None]:
     """Generate all field names in sort order except _score"""
     for sort_item in sort:
         if isinstance(sort_item, str):
@@ -107,3 +108,12 @@ def sort_order_fields(sort: SortOrder) -> str:
         else:
             yield from [item for item in sort_item.keys() if item != "_score"]
 
+
+def wrap_function_scoring(q: dict[str, Any], functions: list[Any])\
+        -> dict[str, Any]:
+        return {
+            "function_score": {
+                "query": q,
+                "functions": functions
+            }
+        }
