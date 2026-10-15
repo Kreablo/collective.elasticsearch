@@ -3,9 +3,8 @@ from collective.elasticsearch.indexes import getIndex
 from collective.elasticsearch.interfaces import IQueryAssembler, SortOrder
 from collective.elasticsearch.combinator import Query
 from collective.elasticsearch.utils import getESOnlyIndexes, sort_order_fields
-from collective.elasticsearch.utils import wrap_function_scoring
 from zope.interface import implementer
-from collections.abc import Set, Mapping
+from collections.abc import Set
 from typing import Any
 
 _search_attributes: Set[str] = {
@@ -88,6 +87,9 @@ class QueryAssembler:
             if s not in _sort_attributes:
                 return None
 
+        if 'filters' in dquery:
+            return None
+
         pl = None
         if "pl" in dquery:
             pl = dquery["pl"]
@@ -128,7 +130,9 @@ class QueryAssembler:
         if len(filters) > 0:
             query["bool"]["filter"] = filters
 
-        if len(matches) > 0:
+        if len(matches) == 1:
+            query["bool"]["must"] = matches[0]
+        elif len(matches) > 1:
             query["bool"]["should"] = matches
             query["bool"]["minimum_should_match"] = 1
 

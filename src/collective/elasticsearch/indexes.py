@@ -212,6 +212,11 @@ class EZCTextIndex(BaseIndex):
 
     def get_query(self, name, value):
         value = self._normalize_query(value)
+        if value == "*":
+            return {
+                "match_all": {}
+            }
+
         queries = [{
             "match_phrase": {
                 name: {
