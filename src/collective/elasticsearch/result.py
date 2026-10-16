@@ -89,8 +89,24 @@ class BrainFactory:
         if "fields" in result.keys():
             path = result.get("fields", {}).get("path.path", None)
         elif "_source" in result.keys():
-            source = result.get("_source")
-            path = source.get("path", {}).get("path")
+            # source = result.get("_source")
+            # path = source.get("path", {}).get("path")
+            # All information is already in the source field, no need
+            # to reload the record from ElasticSearch.  Instead, use
+            # the _source field directly.
+            brain = ElasticSearchBrain(record=result.get("_source"),
+                                       catalog=manager.catalog,
+                                       source=None)
+            if manager.highlight and result.get("highlight"):
+                fragments = []
+                fraglen = 0
+                for idx, i in enumerate(result["highlight"].get("SearchableText", [])):
+                    fraglen += len(i)
+                    if idx > 0 and fraglen > manager.highlight_threshold:
+                        break
+                    fragments.append(i)
+                brain["Description"] = " ... ".join(fragments)
+            return brain
 
         if type(path) in (list, tuple, set) and len(path) > 0:
             path = path[0]
