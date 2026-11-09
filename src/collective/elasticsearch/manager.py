@@ -31,6 +31,8 @@ from zope.globalrequest import getRequest
 from zope.interface import implementer
 from zope.interface.interfaces import ComponentLookupError
 from ZTUtils.Lazy import LazyMap
+from plone.memoize import ram
+from time import time
 
 import os
 import warnings
@@ -612,9 +614,39 @@ class ElasticSearchManager:
                 query["effectiveRange"] = DateTime()
         orig_query = query.copy()
         try:
+            # TODO default b_size
+            if 'SearchableText' in query and query['SearchableText'] == '*' \
+               and ('b_start' not in query or query['b_start'] == 0 and query['b_size'] == 25):
+                return self.memoized_search(query)
             return self.search(query)
         except Exception:  # NOQA W0703
             if self.raise_search_exception is True:
                 raise
             logger.error(f"Error running Query: {orig_query}", exc_info=True)
             return self.catalog._old_searchResults(request, **kw)
+
+    @ram.cache(lambda fun, _, query:
+               repr(int(time() // (60 * 60 * 24))) + ':' + _cache_key(query))
+    def memoized_search(self, query):
+        return self.search(query)
+
+
+def _cache_key(query: dict) -> str:
+    keys = sorted(query.keys())
+    s = ""
+    for key in keys:
+        if key == "effectiveRange":
+            # We have to ignore effective range here as it always changes.
+            continue
+        if s != "":
+            s += ";"
+        s += repr(key) + ':'
+        v = query[key]
+        if isinstance(v, list):
+            s += "|".join(map(repr, sorted(v)))
+        elif isinstance(v, dict):
+            s += _cache_key(v)
+        else:
+            s += repr(v)
+
+    return s
